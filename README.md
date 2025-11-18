@@ -1,6 +1,6 @@
 import requests
 import streamlit as st
-import pandas as pd # 雖然範例中沒有用到 pandas，但一般資料處理會引入 
+import pandas as pd 
 
 st.title("🌱 台灣氣象資料 Dashboard")
 
