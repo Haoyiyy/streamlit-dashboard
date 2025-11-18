@@ -4,23 +4,21 @@ import pandas as pd
 import json
 import urllib3
 
-# 這是為了解決 Streamlit Cloud 上的 SSLError 問題，禁用因 verify=False 引起的 InsecureRequestWarning 警告
+# 禁用因 verify=False 引起的 InsecureRequestWarning 警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- 配置：讀取 API 金鑰 ---
-# 🚨 Streamlit Cloud 部署的標準做法：從 st.secrets 讀取金鑰
+# 🚨 這是正確的程式碼：
+# 它會自動去 Streamlit Cloud 的 Secrets 設定中，尋找 CWA_API_KEY
 try:
-    # 程式碼會在這裡嘗試讀取 Streamlit Cloud Secrets 中的 CWA_API_KEY
-    API_KEY = st.secrets["CWA_API_KEY="CWA-FF1A0347-64B8-4CBE-8214-580F9D17514D""]
+    API_KEY = st.secrets["CWA_API_KEY"]
 except KeyError:
-    # 如果金鑰未設定，則設為 None
     API_KEY = None 
 
 # 中央氣象署 36 小時天氣預報 API URL
 DATA_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
 
 # --- 函數：抓取並解析資料 ---
-# 使用 Streamlit 快取資料 10 分鐘 (ttl=600 秒)，避免頻繁呼叫 API
 @st.cache_data(ttl=600) 
 def fetch_weather_data(location_name):
     """從中央氣象署 API 抓取 36 小時天氣預報資料，並包含錯誤處理"""
@@ -36,9 +34,9 @@ def fetch_weather_data(location_name):
         url = f"{DATA_URL}?Authorization={API_KEY}&locationName={location_name}"
         st.caption(f"Fetching data for: {location_name}...")
         
-        # 2. 發送 API 請求 (關鍵修復：加入 verify=False 解決 Streamlit Cloud 上的 SSLError)
+        # 2. 發送 API 請求 (加入 verify=False 解決 SSLError)
         res = requests.get(url, timeout=10, verify=False) 
-        res.raise_for_status() # 如果狀態碼不是 200 (成功)，會拋出 HTTPError 異常
+        res.raise_for_status() 
         
         data = res.json()
         
@@ -52,7 +50,6 @@ def fetch_weather_data(location_name):
         return location_data
 
     except requests.exceptions.HTTPError as e:
-        # 處理 HTTP 錯誤，例如 401 Unauthorized (最常見的 API Key 錯誤)
         status_code = e.response.status_code
         st.error(f"🌐 API 請求發生 HTTP 錯誤 (Code: {status_code})。")
         if status_code == 401:
@@ -62,11 +59,9 @@ def fetch_weather_data(location_name):
             st.error(f"連線錯誤: {e}")
         return None
     except requests.exceptions.RequestException as e:
-        # 處理其他網路錯誤，例如連線超時
         st.error(f"🌐 網路請求發生錯誤，請檢查您的網路連線: {e}")
         return None
     except Exception as e:
-        # 捕捉其他所有未預期的錯誤
         st.error(f"❌ 發生未預期的錯誤: {e}")
         return None
 
@@ -75,16 +70,14 @@ st.set_page_config(page_title="台灣氣象 Dashboard", layout="centered")
 st.title("🌱 台灣氣象資料 Dashboard")
 st.markdown("---")
 
-# 讓使用者選擇城市 (使用 CWA API 接受的繁體中文名稱)
 AVAILABLE_LOCATIONS = [
     "臺北市", "新北市", "桃園市", "臺中市", "臺南市", "高雄市", 
-    "基隆市", "新竹縣", "新竹市", "苗栗縣", "彰化縣", "南投縣", 
+    "基隆市", "新竹縣", "新竹市", "苗栗縣", "彰化縣", "N投縣", 
     "雲林縣", "嘉義縣", "嘉義市", "屏東縣", "宜蘭縣", "花蓮縣", 
     "臺東縣", "澎湖縣", "金門縣", "連江縣"
 ]
 selected_location = st.selectbox("請選擇城市", AVAILABLE_LOCATIONS)
 
-# 抓取資料
 location = fetch_weather_data(selected_location)
 
 if location:
@@ -93,15 +86,10 @@ if location:
     
     weather_elements = []
     
-    # 解析並顯示預報資訊
     for element in location["weatherElement"]:
         name = element["elementName"]
-        
-        # 抓取第一個時間點的預報值 (代表最新的 12 小時預報)
         if element["time"]:
             time_entry = element["time"][0]
-            
-            # 處理不同的資料結構：有些值在 'parameter'，有些值在 'value'
             parameter = time_entry.get("parameter")
             if parameter and parameter.get("parameterName"):
                 value = parameter["parameterName"]
@@ -109,14 +97,11 @@ if location:
                  value = time_entry["value"]
             else:
                  value = "N/A"
-                 
             weather_elements.append({"天氣項目": name, "預報值": value})
             
-    # 使用 DataFrame 美觀地顯示結果
     df = pd.DataFrame(weather_elements)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-    # 顯示數據時間範圍
     if location["weatherElement"] and location["weatherElement"][0]["time"]:
         start_time = location["weatherElement"][0]["time"][0]["startTime"]
         end_time = location["weatherElement"][0]["time"][0]["endTime"]
