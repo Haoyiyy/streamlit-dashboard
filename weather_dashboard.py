@@ -11,7 +11,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # 🚨 Streamlit Cloud 部署的標準做法：從 st.secrets 讀取金鑰
 try:
     # 程式碼會在這裡嘗試讀取 Streamlit Cloud Secrets 中的 CWA_API_KEY
-    API_KEY = st.secrets["CWA_API_KEY"]
+    API_KEY = st.secrets["CWA_API_KEY="CWA-FF1A0347-64B8-4CBE-8214-580F9D17514D""]
 except KeyError:
     # 如果金鑰未設定，則設為 None
     API_KEY = None 
